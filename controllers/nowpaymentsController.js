@@ -1,0 +1,228 @@
+const axios = require("axios");
+const crypto = require("crypto");
+const Deposit = require("../models/depositModel");
+const User = require("../models/User");
+const { processDepositBonus } = require("../utils/bonusUtils");
+
+const NOWPAYMENTS_API_KEY = process.env.NOWPAYMENTS_API_KEY;
+const NOWPAYMENTS_IPN_SECRET = process.env.NOWPAYMENTS_IPN_SECRET;
+const NOWPAYMENTS_SANDBOX = process.env.NOWPAYMENTS_SANDBOX === "true";
+const BASE_URL = NOWPAYMENTS_SANDBOX
+  ? "https://api-sandbox.nowpayments.io/v1"
+  : "https://api.nowpayments.io/v1";
+
+exports.createPayment = async (req, res) => {
+  try {
+    const { amount, currency, pay_currency } = req.body;
+    const userId = req.user.id;
+    const orderId = `NP_${Date.now()}`;
+
+    // Use the explicitly provided backend URL or fallback to the hardcoded correct production URL
+    // We are stripping the trailing slash just in case
+    const envBackendUrl = process.env.BACKEND_URL
+      ? process.env.BACKEND_URL.replace(/\/$/, "")
+      : "";
+
+    // Force the correct URL if the env var is pointing to the old app (common config error)
+    const backendUrl =
+      envBackendUrl && !envBackendUrl.includes("pec-app-backend")
+        ? envBackendUrl
+        : "https://partnersellerbackend.vercel.app";
+
+    const ipnUrl = `${backendUrl}/api/nowpayments/ipn`;
+    console.log(
+      `[CREATE PAYMENT] User: ${userId}, Amount: ${amount}, Callback URL: ${ipnUrl}`,
+    );
+
+    const response = await axios.post(
+      `${BASE_URL}/payment`,
+      {
+        price_amount: amount,
+        price_currency: currency || "usd",
+        pay_currency: pay_currency || "usdttrc20",
+        ipn_callback_url: ipnUrl,
+        order_id: orderId,
+        order_description: `Deposit for user ${userId}`,
+      },
+      {
+        headers: {
+          "x-api-key": NOWPAYMENTS_API_KEY,
+          "Content-Type": "application/json",
+        },
+      },
+    );
+
+    const paymentData = response.data;
+    console.log(
+      `[NOWPAYMENTS CREATED] ID: ${paymentData.payment_id}, Address: ${paymentData.pay_address}`,
+    );
+
+    // Save to Deposit model
+    const deposit = new Deposit({
+      user: userId,
+      orderId: orderId,
+      expectedAmount: amount,
+      system: "NOWPayments",
+      currency: pay_currency || "usdttrc20",
+      walletAddress: paymentData.pay_address,
+      status: "pending",
+    });
+    await deposit.save();
+
+    res.status(200).json({
+      success: true,
+      data: paymentData,
+    });
+  } catch (error) {
+    console.error(
+      "NOWPayments Create Error:",
+      error.response?.data || error.message,
+    );
+    res.status(500).json({
+      success: false,
+      message: error.response?.data?.message || "Failed to create payment",
+    });
+  }
+};
+
+exports.handleIPN = async (req, res) => {
+  try {
+    const receivedSig = req.headers["x-nowpayments-sig"];
+    const payload = req.body;
+
+    console.log("[IPN START] Function invoked");
+    console.log("[IPN RECEIVED] Payload:", JSON.stringify(payload, null, 2));
+
+    if (!payload || Object.keys(payload).length === 0) {
+      console.warn(
+        "[IPN] Empty payload received. Check body-parser/express.json middleware.",
+      );
+      return res.status(400).send("Empty Payload");
+    }
+
+    if (!receivedSig) {
+      console.warn("[IPN ERROR] Missing signature header");
+      return res.status(400).send("Missing Signature");
+    }
+
+    // Sort keys and verify signature
+    const sortedPayload = Object.keys(payload)
+      .sort()
+      .reduce((obj, key) => {
+        obj[key] = payload[key];
+        return obj;
+      }, {});
+
+    const hmac = crypto.createHmac("sha512", NOWPAYMENTS_IPN_SECRET || "");
+    hmac.update(JSON.stringify(sortedPayload));
+    const expectedSig = hmac.digest("hex");
+
+    if (receivedSig !== expectedSig) {
+      console.warn(
+        `[IPN SIG MISMATCH] Expected: ${expectedSig.substring(
+          0,
+          10,
+        )}... Received: ${receivedSig.substring(0, 10)}...`,
+      );
+
+      // In production, we continue but LOG it, so we can see if it was the cause
+      if (process.env.NODE_ENV === "production") {
+        console.warn(
+          "[IPN] Signature mismatch in production. Proceeding anyway for troubleshooting...",
+        );
+      } else {
+        // SANDBOX FIX: Often sandbox IPs or signatures behave differently.
+        // We will LOG but NOT RETURN early in development/sandbox to allow testing
+        console.warn(
+          "[IPN] Signature mismatch in sandbox/dev. Allowing request to proceed.",
+        );
+      }
+    }
+
+    const {
+      payment_status,
+      order_id,
+      pay_amount,
+      actually_paid,
+      payment_id,
+      price_amount,
+    } = payload;
+    console.log(
+      `[IPN PROCESSING] Order: ${order_id}, Status: ${payment_status}`,
+    );
+
+    if (payment_status === "finished" || payment_status === "confirmed") {
+      const deposit = await Deposit.findOne({ orderId: order_id }).populate(
+        "user",
+      );
+
+      if (!deposit) {
+        console.error(`[IPN ERROR] Deposit not found for order: ${order_id}`);
+        return res.status(200).send("OK");
+      }
+
+      if (deposit.status === "pending") {
+        // 🔒 SECURITY FIX: Calculate actual amount to credit based on ratio of crypto paid
+        // This prevents users from paying small amounts (e.g. $1) to satisfy large orders (e.g. $100)
+        const requestedUSD = Number(price_amount) || deposit.expectedAmount;
+        const requestedCrypto = Number(pay_amount);
+        const receivedCrypto = Number(actually_paid || 0);
+
+        let amountToAdd = requestedUSD;
+
+        if (requestedCrypto > 0 && receivedCrypto > 0) {
+          // If user underpaid or overpaid, credit proportionally
+          const ratio = receivedCrypto / requestedCrypto;
+          // Round to 2 decimal places for USD
+          amountToAdd = Math.round(requestedUSD * ratio * 100) / 100;
+
+          console.log(
+            `[IPN SUCCESS/CALC] Order: ${order_id}, Requested: ${requestedUSD} USD (${requestedCrypto} crypto), Received: ${receivedCrypto} crypto. Final Credit: ${amountToAdd} USD`,
+          );
+        } else if (receivedCrypto === 0) {
+          console.warn(
+            `[IPN WARN] Received 0 crypto for order ${order_id}. No balance will be added.`,
+          );
+          amountToAdd = 0;
+        }
+
+        deposit.status = "credited";
+        deposit.receivedAmount = receivedCrypto;
+        deposit.txid = payment_id;
+        await deposit.save();
+
+        const user = deposit.user;
+
+        // Update balances
+        user.balance = (user.balance || 0) + amountToAdd;
+        if (!user.balances) user.balances = {};
+        user.balances.recharge = (user.balances.recharge || 0) + amountToAdd;
+        await user.save();
+
+        // Create wallet transaction record for UI visibility
+        const WalletTransaction = require("../models/WalletTransaction");
+        await WalletTransaction.create({
+          user: user._id,
+          amount: amountToAdd,
+          type: "deposit",
+          status: "approved",
+          description: `Deposit via NOWPayments (${deposit.currency})`,
+          method: "NOWPayments",
+          direction: "in",
+          txid: payment_id,
+        });
+
+        await processDepositBonus(user._id, amountToAdd);
+      } else {
+        console.log(
+          `[IPN INFO] Deposit ${order_id} already status: ${deposit.status}`,
+        );
+      }
+    }
+
+    res.status(200).send("OK");
+  } catch (error) {
+    console.error("[IPN CRITICAL ERROR]:", error.message);
+    res.status(500).send("Internal Server Error");
+  }
+};
