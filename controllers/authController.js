@@ -272,33 +272,30 @@ const registerWithUsername = async (req, res) => {
 // --- Login with username + password ---
 const loginWithUsername = async (req, res) => {
   try {
-    const { username, password } = req.body;
-    console.log(`[LOGIN ATTEMPT] Username: ${username}`);
+    const { username: rawUsername, password } = req.body;
+    const username = rawUsername ? rawUsername.trim() : "";
+    console.log(`[LOGIN ATTEMPT] Username: "${username}"`);
 
     if (!username || !password)
       return res.status(400).json({ error: "Username and password required" });
 
-    // DEBUG: Log all user names in DB to verify what's there
-    const allUsers = await User.find({}, "name email").limit(5);
-    console.log(
-      `[DEBUG DB CHECK] Found ${allUsers.length} total users. Sample:`,
-      JSON.stringify(allUsers),
-    );
-
-    // Try finding by name OR by email (case-insensitive)
+    // Try finding by name, email, or storeName (case-insensitive)
     const user = await User.findOne({
       $or: [
         { name: { $regex: new RegExp(`^${username}$`, "i") } },
         { email: { $regex: new RegExp(`^${username}$`, "i") } },
+        { storeName: { $regex: new RegExp(`^${username}$`, "i") } },
       ],
     });
 
     if (!user) {
-      console.log(`[LOGIN FAILED] User/Email not found: ${username}`);
+      console.log(`[LOGIN FAILED] User/Email/Store not found: "${username}"`);
       return res.status(404).json({ error: "User not found" });
     }
 
-    console.log(`[LOGIN DATA] Found user: ${user.name} (${user.email})`);
+    console.log(
+      `[LOGIN DATA] Found user: ${user.name} (${user.email}), Store: ${user.storeName}`,
+    );
 
     const valid = await bcrypt.compare(password, user.passwordHash);
     if (!valid) {
