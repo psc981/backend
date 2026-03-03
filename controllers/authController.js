@@ -273,15 +273,26 @@ const registerWithUsername = async (req, res) => {
 const loginWithUsername = async (req, res) => {
   try {
     const { username, password } = req.body;
+    console.log(`[LOGIN ATTEMPT] Username: ${username}`);
+
     if (!username || !password)
       return res.status(400).json({ error: "Username and password required" });
 
-    const user = await User.findOne({ name: username });
-    if (!user) return res.status(404).json({ error: "User not found" });
+    const user = await User.findOne({
+      name: { $regex: new RegExp(`^${username}$`, "i") },
+    });
+    if (!user) {
+      console.log(`[LOGIN FAILED] User not found: ${username}`);
+      return res.status(404).json({ error: "User not found" });
+    }
 
     const valid = await bcrypt.compare(password, user.passwordHash);
-    if (!valid) return res.status(400).json({ error: "Invalid password" });
+    if (!valid) {
+      console.log(`[LOGIN FAILED] Invalid password for: ${username}`);
+      return res.status(400).json({ error: "Invalid password" });
+    }
 
+    console.log(`[LOGIN SUCCESS] User: ${username}`);
     res.json({
       message: "Login successful",
       token: generateToken(user._id),
