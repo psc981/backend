@@ -43,20 +43,27 @@ const registerAdmin = async (req, res) => {
 // Admin Login
 const loginAdmin = async (req, res) => {
   const { username, password } = req.body;
+  console.log(`[ADMIN LOGIN ATTEMPT] Username: ${username}`);
 
   try {
-    const admin = await Admin.findOne({ username });
+    const admin = await Admin.findOne({
+      username: { $regex: new RegExp(`^${username}$`, "i") },
+    });
+
     if (!admin) {
+      console.log(`[ADMIN LOGIN FAILED] Admin not found: ${username}`);
       return res.status(400).json({ error: "Admin does not exist" });
     }
 
     const isMatch = await admin.matchPassword(password);
     if (!isMatch) {
+      console.log(`[ADMIN LOGIN FAILED] Invalid password for: ${username}`);
       return res.status(400).json({ error: "Invalid credentials" });
     }
 
     const token = generateToken(admin._id, "admin");
 
+    console.log(`[ADMIN LOGIN SUCCESS] Admin: ${username}`);
     res.status(200).json({
       message: "Login successful",
       token,
@@ -67,6 +74,7 @@ const loginAdmin = async (req, res) => {
       },
     });
   } catch (error) {
+    console.error("Admin Login Error:", error.message);
     res.status(500).json({ error: error.message });
   }
 };
