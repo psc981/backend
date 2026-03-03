@@ -278,13 +278,20 @@ const loginWithUsername = async (req, res) => {
     if (!username || !password)
       return res.status(400).json({ error: "Username and password required" });
 
+    // Try finding by name OR by email (case-insensitive)
     const user = await User.findOne({
-      name: { $regex: new RegExp(`^${username}$`, "i") },
+      $or: [
+        { name: { $regex: new RegExp(`^${username}$`, "i") } },
+        { email: { $regex: new RegExp(`^${username}$`, "i") } },
+      ],
     });
+
     if (!user) {
-      console.log(`[LOGIN FAILED] User not found: ${username}`);
+      console.log(`[LOGIN FAILED] User/Email not found: ${username}`);
       return res.status(404).json({ error: "User not found" });
     }
+
+    console.log(`[LOGIN DATA] Found user: ${user.name} (${user.email})`);
 
     const valid = await bcrypt.compare(password, user.passwordHash);
     if (!valid) {
