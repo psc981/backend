@@ -95,21 +95,26 @@ app.get("/", (req, res) => {
 });
 
 // ✅ API routes
-app.use("/api/auth", authRoutes);
-app.use("/api/psc", adminRoutes);
-app.use("/api/wallet", walletRoutes);
-app.use("/api/products", productRoutes);
-app.use("/api/kyc", kycRoutes);
-app.use("/api/purchases", purchaseRoutes);
-app.use("/api/settings", settingsRoutes);
-app.use("/api/deposit", depositRoutes);
-app.use("/api/nowpayments", require("./routes/nowpaymentsRoutes"));
-app.use("/api/notifications", notificationRoutes);
-app.use("/api/referral", require("./routes/referralRoutes"));
-app.use("/api/announcements", announcementRoutes);
-app.use("/api/statistics", require("./routes/useStatistics"));
-app.use("/api/chat", require("./routes/chatRoutes"));
-app.use("/api/safepay", require("./routes/safepayRoutes"));
+const registerRoutes = (prefix, app) => {
+  app.use(`${prefix}/auth`, authRoutes);
+  app.use(`${prefix}/psc`, adminRoutes);
+  app.use(`${prefix}/wallet`, walletRoutes);
+  app.use(`${prefix}/products`, productRoutes);
+  app.use(`${prefix}/kyc`, kycRoutes);
+  app.use(`${prefix}/purchases`, purchaseRoutes);
+  app.use(`${prefix}/settings`, settingsRoutes);
+  app.use(`${prefix}/deposit`, depositRoutes);
+  app.use(`${prefix}/nowpayments`, require("./routes/nowpaymentsRoutes"));
+  app.use(`${prefix}/notifications`, notificationRoutes);
+  app.use(`${prefix}/referral`, require("./routes/referralRoutes"));
+  app.use(`${prefix}/announcements`, announcementRoutes);
+  app.use(`${prefix}/statistics`, require("./routes/useStatistics"));
+  app.use(`${prefix}/chat`, require("./routes/chatRoutes"));
+  app.use(`${prefix}/safepay`, require("./routes/safepayRoutes"));
+};
+
+registerRoutes("/api", app);
+registerRoutes("", app); // Fallback for requests missing /api prefix
 
 // ✅ Local development
 if (require.main === module) {
