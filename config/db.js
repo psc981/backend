@@ -10,6 +10,14 @@ const connectDB = async () => {
     console.log("MONGO_URI:", process.env.MONGO_URI.replace(/:.+@/, ":****@"));
     isConnected = conn.connections[0].readyState === 1;
     console.log(`✅ MongoDB Connected: ${conn.connection.host}`);
+    console.log(`📂 Database Name: ${conn.connection.db.databaseName}`);
+
+    // List collections to verify we're in the right place
+    const collections = await conn.connection.db.listCollections().toArray();
+    console.log(
+      `📋 Collections in ${conn.connection.db.databaseName}:`,
+      collections.map((c) => c.name).join(", "),
+    );
   } catch (error) {
     console.error("❌ MongoDB connection error:", error.message);
     throw new Error("MongoDB connection failed");
