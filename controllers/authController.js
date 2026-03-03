@@ -278,6 +278,13 @@ const loginWithUsername = async (req, res) => {
     if (!username || !password)
       return res.status(400).json({ error: "Username and password required" });
 
+    // DEBUG: Log all user names in DB to verify what's there
+    const allUsers = await User.find({}, "name email").limit(5);
+    console.log(
+      `[DEBUG DB CHECK] Found ${allUsers.length} total users. Sample:`,
+      JSON.stringify(allUsers),
+    );
+
     // Try finding by name OR by email (case-insensitive)
     const user = await User.findOne({
       $or: [
