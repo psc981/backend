@@ -6,7 +6,9 @@ const connectDB = async () => {
   if (isConnected) return; // use existing connection
 
   try {
-    const conn = await mongoose.connect(process.env.MONGO_URI);
+    const conn = await mongoose.connect(process.env.MONGO_URI, {
+      dbName: "usdt_store",
+    });
     console.log("MONGO_URI:", process.env.MONGO_URI.replace(/:.+@/, ":****@"));
     isConnected = conn.connections[0].readyState === 1;
     console.log(`✅ MongoDB Connected: ${conn.connection.host}`);
