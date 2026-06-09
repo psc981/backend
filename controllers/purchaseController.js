@@ -40,6 +40,7 @@ exports.buyProduct = async (req, res) => {
     user.balances.recharge -= product.price;
     user.balance -= product.price;
 
+    user.markModified("balances");
     await user.save();
 
     // 5. Record purchase
@@ -193,8 +194,8 @@ exports.claimProfit = async (req, res) => {
       });
     }
 
-    // Calculate profit (e.g., 2.2%)
-    const profitPercent = 2.2;
+    // Calculate profit (e.g., 2.5%)
+    const profitPercent = 2.5;
     const profitAmount =
       Math.round(((purchase.product.price * profitPercent) / 100) * 100) / 100;
 
@@ -203,6 +204,7 @@ exports.claimProfit = async (req, res) => {
     user.balance = Math.round((user.balance + profitAmount) * 100) / 100;
     user.balances.profit =
       Math.round(((user.balances.profit || 0) + profitAmount) * 100) / 100;
+    user.markModified("balances");
     await user.save();
 
     // Create a transaction record for the profit

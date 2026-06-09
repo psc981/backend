@@ -26,7 +26,7 @@ exports.getBasicStats = async (req, res) => {
     const userTotalSales = userTotalSalesAgg[0]?.total || 0;
 
     // Profit Ratio
-    const profitPercent = 2.2;
+    const profitPercent = 2.5;
 
     // Current month sales for user
     const now = new Date();

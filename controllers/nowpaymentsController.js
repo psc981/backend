@@ -197,6 +197,7 @@ exports.handleIPN = async (req, res) => {
         user.balance = (user.balance || 0) + amountToAdd;
         if (!user.balances) user.balances = {};
         user.balances.recharge = (user.balances.recharge || 0) + amountToAdd;
+        user.markModified("balances");
         await user.save();
 
         // Create wallet transaction record for UI visibility

@@ -226,6 +226,7 @@ const addBalanceToUser = async (req, res) => {
     user.balances.recharge += Number(amount);
     user.balance += Number(amount);
 
+    user.markModified("balances");
     await user.save();
 
     // Record transaction

@@ -62,6 +62,7 @@ exports.approveDeposit = async (req, res) => {
     transaction.user.balance += transaction.amount;
     transaction.user.balances.recharge =
       (transaction.user.balances.recharge || 0) + transaction.amount;
+    transaction.user.markModified("balances");
     await transaction.user.save();
 
     // Trigger Deposit Bonus (Self + Referral First Time)
@@ -126,6 +127,7 @@ exports.releaseBuyerEscrow = async (req, res) => {
     user.balance = Math.round((user.balance + txn.amount) * 100) / 100;
     user.balances.recharge =
       Math.round(((user.balances.recharge || 0) + txn.amount) * 100) / 100;
+    user.markModified("balances");
     await user.save();
 
     // Create a new transaction record for the release/transfer in
@@ -232,6 +234,7 @@ exports.withdrawRequest = async (req, res) => {
       deductions.signupBonus = fromSignup;
     }
 
+    user.markModified("balances");
     await user.save();
 
     const transaction = await WalletTransaction.create({
@@ -315,6 +318,7 @@ exports.rejectWithdraw = async (req, res) => {
       transaction.user.balances.selfBonus += d.selfBonus || 0;
       transaction.user.balances.signupBonus += d.signupBonus || 0;
 
+      transaction.user.markModified("balances");
       await transaction.user.save();
     }
 
@@ -391,6 +395,7 @@ exports.transferFunds = async (req, res) => {
       // Add to recharge (available)
       user.balances.recharge += amount;
 
+      user.markModified("balances");
       await user.save();
 
       // Create transaction record
@@ -411,7 +416,7 @@ exports.transferFunds = async (req, res) => {
     } else if (direction === "AtoB") {
       return res.status(400).json({
         message:
-          "To ensure swapping must completed 60x turnover of recharge volume. Once the criteria are met, funds may be moved to Earn-Wallet for withdrawal.",
+          "To ensure swapping must completed 28x turnover of recharge volume. Once the criteria are met, funds may be moved to Earn-Wallet for withdrawal.",
       });
     } else {
       return res.status(400).json({ message: "Invalid direction" });

@@ -28,6 +28,7 @@ const processDepositBonus = async (userId, amount) => {
       if (selfBonus > 0) {
         user.balance = (user.balance || 0) + selfBonus;
         user.balances.selfBonus = (user.balances.selfBonus || 0) + selfBonus;
+        user.markModified("balances");
         await user.save();
 
         await WalletTransaction.create({
@@ -70,6 +71,7 @@ const processDepositBonus = async (userId, amount) => {
               referrer.balance = (referrer.balance || 0) + refBonus;
               referrer.balances.referralBonus =
                 (referrer.balances.referralBonus || 0) + refBonus;
+              referrer.markModified("balances");
               await referrer.save();
 
               await WalletTransaction.create({
@@ -141,6 +143,7 @@ const processReferralBonus = async (userId, amount, type) => {
           referrer.balance = (referrer.balance || 0) + bonusAmount;
           referrer.balances.teamCommission =
             (referrer.balances.teamCommission || 0) + bonusAmount;
+          referrer.markModified("balances");
           await referrer.save();
 
           // Record transaction

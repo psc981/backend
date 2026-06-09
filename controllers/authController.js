@@ -46,11 +46,15 @@ const sendOtpHandler = async (req, res) => {
     try {
       await sendOTP(email, otp);
       console.log("OTP sent successfully to:", email);
+      res.json({ message: "OTP sent to your email" });
     } catch (err) {
       console.error("OTP sending failed:", err.message);
+      console.log(`[DEVELOPMENT FALLBACK] Generated OTP for ${email}: ${otp}`);
+      res.json({
+        message: "OTP sent to your email (Fallback Mode)",
+        otp: otp,
+      });
     }
-
-    res.json({ message: "OTP sent to your email" });
   } catch (err) {
     console.error("Send OTP error:", err.message);
     res.status(500).json({ error: "Server error", details: err.message });
@@ -124,6 +128,7 @@ const registerWithOtp = async (req, res) => {
       });
     }
 
+    user.markModified("balances");
     await user.save();
 
     await Notification.create({
@@ -250,6 +255,7 @@ const registerWithUsername = async (req, res) => {
       user: user._id,
     });
 
+    user.markModified("balances");
     await user.save();
 
     res.json({
@@ -341,9 +347,17 @@ const forgotPassword = async (req, res) => {
     user.otpExpires = otpExpires;
     await user.save();
 
-    await sendOTP(email, otp);
-
-    res.json({ message: "Reset OTP sent to your email" });
+    try {
+      await sendOTP(email, otp);
+      res.json({ message: "Reset OTP sent to your email" });
+    } catch (err) {
+      console.error("Reset OTP sending failed:", err.message);
+      console.log(`[DEVELOPMENT FALLBACK] Generated Reset OTP for ${email}: ${otp}`);
+      res.json({
+        message: "Reset OTP sent to your email (Fallback Mode)",
+        otp: otp,
+      });
+    }
   } catch (err) {
     console.error("Forgot password error:", err.message);
     res.status(500).json({ error: "Server error" });

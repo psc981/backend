@@ -53,9 +53,13 @@ exports.sendMessageToAdmin = async (req, res) => {
     });
 
     // Trigger Pusher for Admin
-    pusher.trigger("admin-chat", "new-message", {
-      message: newMessage,
-    });
+    try {
+      pusher.trigger("admin-chat", "new-message", {
+        message: newMessage,
+      }).catch(err => console.error("Pusher admin-chat promise error:", err));
+    } catch (pusherErr) {
+      console.error("Pusher admin-chat sync error:", pusherErr);
+    }
 
     res.json({ success: true, message: newMessage });
   } catch (error) {
@@ -154,9 +158,13 @@ exports.replyToUser = async (req, res) => {
     });
 
     // Trigger Pusher for User
-    pusher.trigger(`user-chat-${userId}`, "new-message", {
-      message: newMessage,
-    });
+    try {
+      pusher.trigger(`user-chat-${userId}`, "new-message", {
+        message: newMessage,
+      }).catch(err => console.error(`Pusher user-chat-${userId} promise error:`, err));
+    } catch (pusherErr) {
+      console.error("Pusher user-chat sync error:", pusherErr);
+    }
 
     res.json({ success: true, message: newMessage });
   } catch (error) {

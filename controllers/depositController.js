@@ -149,6 +149,7 @@ async function handleIpn(req, res) {
       if (user) {
         user.balance = (user.balance || 0) + amountReceived;
         user.balances.recharge = (user.balances.recharge || 0) + amountReceived;
+        user.markModified("balances");
         await user.save();
 
         // Trigger Deposit Bonus (Self + Referral First Time)
@@ -241,6 +242,8 @@ async function handleTransactionNotification(req, res) {
       const user = await User.findById(deposit.user);
       if (user) {
         user.balance = (user.balance || 0) + amount;
+        user.balances.recharge = (user.balances.recharge || 0) + amount;
+        user.markModified("balances");
         await user.save();
 
         // Trigger Deposit Bonus (Self + Referral First Time)
@@ -283,6 +286,8 @@ async function mockDepositPayment(req, res) {
     const user = await User.findById(deposit.user);
     if (user) {
       user.balance = (user.balance || 0) + Number(amount);
+      user.balances.recharge = (user.balances.recharge || 0) + Number(amount);
+      user.markModified("balances");
       await user.save();
     }
 
