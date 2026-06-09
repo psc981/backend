@@ -49,11 +49,7 @@ const sendOtpHandler = async (req, res) => {
       res.json({ message: "OTP sent to your email" });
     } catch (err) {
       console.error("OTP sending failed:", err.message);
-      console.log(`[DEVELOPMENT FALLBACK] Generated OTP for ${email}: ${otp}`);
-      res.json({
-        message: "OTP sent to your email (Fallback Mode)",
-        otp: otp,
-      });
+      return res.status(500).json({ error: `Failed to send OTP email: ${err.message}` });
     }
   } catch (err) {
     console.error("Send OTP error:", err.message);
@@ -352,11 +348,7 @@ const forgotPassword = async (req, res) => {
       res.json({ message: "Reset OTP sent to your email" });
     } catch (err) {
       console.error("Reset OTP sending failed:", err.message);
-      console.log(`[DEVELOPMENT FALLBACK] Generated Reset OTP for ${email}: ${otp}`);
-      res.json({
-        message: "Reset OTP sent to your email (Fallback Mode)",
-        otp: otp,
-      });
+      return res.status(500).json({ error: `Failed to send Reset OTP email: ${err.message}` });
     }
   } catch (err) {
     console.error("Forgot password error:", err.message);
