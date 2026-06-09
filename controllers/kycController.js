@@ -4,10 +4,19 @@ const Notification = require("../models/Notification");
 
 // Upload helper for buffers → Cloudinary
 const uploadToCloudinary = async (file, folder) => {
-  return await cloudinary.uploader.upload(
-    `data:${file.mimetype};base64,${file.buffer.toString("base64")}`,
-    { folder }
-  );
+  try {
+    if (process.env.CLOUDINARY_CLOUD_NAME && process.env.CLOUDINARY_API_KEY && process.env.CLOUDINARY_API_SECRET) {
+      return await cloudinary.uploader.upload(
+        `data:${file.mimetype};base64,${file.buffer.toString("base64")}`,
+        { folder }
+      );
+    } else {
+      return { secure_url: `data:${file.mimetype};base64,${file.buffer.toString("base64")}` };
+    }
+  } catch (error) {
+    console.warn("Cloudinary upload failed, using base64 fallback:", error.message);
+    return { secure_url: `data:${file.mimetype};base64,${file.buffer.toString("base64")}` };
+  }
 };
 
 exports.createKYC = async (req, res) => {

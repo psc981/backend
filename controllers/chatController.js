@@ -30,18 +30,27 @@ exports.sendMessageToAdmin = async (req, res) => {
     let imageUrl = null;
 
     if (req.file) {
-      const streamUpload = (buffer) => {
-        return new Promise((resolve, reject) => {
-          cloudinary.uploader
-            .upload_stream({ folder: "chat_images" }, (error, result) => {
-              if (result) resolve(result);
-              else reject(error);
-            })
-            .end(buffer);
-        });
-      };
-      const result = await streamUpload(req.file.buffer);
-      imageUrl = result.secure_url;
+      try {
+        if (process.env.CLOUDINARY_CLOUD_NAME && process.env.CLOUDINARY_API_KEY && process.env.CLOUDINARY_API_SECRET) {
+          const streamUpload = (buffer) => {
+            return new Promise((resolve, reject) => {
+              cloudinary.uploader
+                .upload_stream({ folder: "chat_images" }, (error, result) => {
+                  if (result) resolve(result);
+                  else reject(error);
+                })
+                .end(buffer);
+            });
+          };
+          const result = await streamUpload(req.file.buffer);
+          imageUrl = result.secure_url;
+        } else {
+          imageUrl = `data:${req.file.mimetype};base64,${req.file.buffer.toString("base64")}`;
+        }
+      } catch (uploadError) {
+        console.warn("Cloudinary upload failed, using base64 fallback:", uploadError.message);
+        imageUrl = `data:${req.file.mimetype};base64,${req.file.buffer.toString("base64")}`;
+      }
     }
 
     const newMessage = await ChatMessage.create({
@@ -135,18 +144,27 @@ exports.replyToUser = async (req, res) => {
     let imageUrl = null;
 
     if (req.file) {
-      const streamUpload = (buffer) => {
-        return new Promise((resolve, reject) => {
-          cloudinary.uploader
-            .upload_stream({ folder: "chat_images" }, (error, result) => {
-              if (result) resolve(result);
-              else reject(error);
-            })
-            .end(buffer);
-        });
-      };
-      const result = await streamUpload(req.file.buffer);
-      imageUrl = result.secure_url;
+      try {
+        if (process.env.CLOUDINARY_CLOUD_NAME && process.env.CLOUDINARY_API_KEY && process.env.CLOUDINARY_API_SECRET) {
+          const streamUpload = (buffer) => {
+            return new Promise((resolve, reject) => {
+              cloudinary.uploader
+                .upload_stream({ folder: "chat_images" }, (error, result) => {
+                  if (result) resolve(result);
+                  else reject(error);
+                })
+                .end(buffer);
+            });
+          };
+          const result = await streamUpload(req.file.buffer);
+          imageUrl = result.secure_url;
+        } else {
+          imageUrl = `data:${req.file.mimetype};base64,${req.file.buffer.toString("base64")}`;
+        }
+      } catch (uploadError) {
+        console.warn("Cloudinary upload failed, using base64 fallback:", uploadError.message);
+        imageUrl = `data:${req.file.mimetype};base64,${req.file.buffer.toString("base64")}`;
+      }
     }
 
     const newMessage = await ChatMessage.create({

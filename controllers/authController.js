@@ -444,18 +444,27 @@ const updateProfile = async (req, res) => {
     // If file uploaded, upload to Cloudinary
     if (req.file) {
       console.log("File uploaded, processing image...");
-      const streamUpload = (buffer) => {
-        return new Promise((resolve, reject) => {
-          cloudinary.uploader
-            .upload_stream({ folder: "profile_images" }, (error, result) => {
-              if (result) resolve(result);
-              else reject(error);
-            })
-            .end(buffer);
-        });
-      };
-      const result = await streamUpload(req.file.buffer);
-      updateData.profileImage = result.secure_url;
+      try {
+        if (process.env.CLOUDINARY_CLOUD_NAME && process.env.CLOUDINARY_API_KEY && process.env.CLOUDINARY_API_SECRET) {
+          const streamUpload = (buffer) => {
+            return new Promise((resolve, reject) => {
+              cloudinary.uploader
+                .upload_stream({ folder: "profile_images" }, (error, result) => {
+                  if (result) resolve(result);
+                  else reject(error);
+                })
+                .end(buffer);
+            });
+          };
+          const result = await streamUpload(req.file.buffer);
+          updateData.profileImage = result.secure_url;
+        } else {
+          updateData.profileImage = `data:${req.file.mimetype};base64,${req.file.buffer.toString("base64")}`;
+        }
+      } catch (uploadError) {
+        console.warn("Cloudinary upload failed, using base64 fallback:", uploadError.message);
+        updateData.profileImage = `data:${req.file.mimetype};base64,${req.file.buffer.toString("base64")}`;
+      }
     }
 
     console.log("Final updateData to be saved:", updateData);
