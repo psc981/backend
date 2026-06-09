@@ -21,12 +21,6 @@ const sendOtpHandler = async (req, res) => {
     if (!email) return res.status(400).json({ error: "Email is required" });
     console.log("Received email:", email); // Log email to verify input
 
-    if (!process.env.SMTP_HOST || !process.env.SMTP_USER || !process.env.SMTP_PASS) {
-      return res.status(500).json({
-        error: "SMTP settings are missing in the server's environment. Please configure SMTP_HOST, SMTP_PORT, SMTP_USER, and SMTP_PASS in your hosting panel (e.g. Vercel settings).",
-      });
-    }
-
     let user = await User.findOne({ email });
 
     const otp = crypto.randomInt(100000, 999999).toString();
@@ -335,12 +329,6 @@ const forgotPassword = async (req, res) => {
     const { username, email } = req.body;
     if (!username || !email)
       return res.status(400).json({ error: "Username and Email are required" });
-
-    if (!process.env.SMTP_HOST || !process.env.SMTP_USER || !process.env.SMTP_PASS) {
-      return res.status(500).json({
-        error: "SMTP settings are missing in the server's environment. Please configure SMTP_HOST, SMTP_PORT, SMTP_USER, and SMTP_PASS in your hosting panel (e.g. Vercel settings).",
-      });
-    }
 
     const user = await User.findOne({ name: username, email });
     if (!user)
